@@ -1,3 +1,29 @@
+oglsl
+=============
+[This fork](https://github.com/unevens/oglsl) of [glsl-optimizer](https://github.com/aras-p/glsl-optimizer) adds an executable called `oglsl`.
+
+oglsl is a tool to optimize lots of shaders with a single command.
+ 
+It runs in the command line, and it takes the paths to the shaders to be optimized as arguments.
+
+oglsl understands if a shader uses OpenGL ES 3 by looking for the string `#version 300 es`, and it will treat  `.frag` files as fragment shaders, `.vert` files as vertex shaders, and `.glsl` files as headers.
+
+oglsl can force the precision qualifiers in the fragment shaders to be `highp` (or `mediump`) when ran with the option `-h` (or `-m`).
+
+Build
+-----
+
+```bash
+$ git clone https://github.com/unevens/oglsl
+$ cd oglsl
+$ mkdir build
+$ cd build
+$ cmake ..
+```
+
+Here follows the original GLSL optimizer readme.
+
+
 GLSL optimizer
 ==============
 

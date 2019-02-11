@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
+project("glsl-optimizer")
+
 include_directories(include)
 include_directories(src/mesa)
 include_directories(src/mapi)
@@ -47,5 +49,10 @@ file(GLOB glslopt_sources contrib/glslopt/*.cpp)
 add_executable(glslopt ${glslopt_sources})
 target_link_libraries(glslopt glsl_optimizer)
 
+file(GLOB oglsl_sources contrib/oglsl/*.cpp)
+add_executable(oglsl ${oglsl_sources})
+target_link_libraries(oglsl glsl_optimizer)
+
 #add_executable(glcpp src/glsl/glcpp/glcpp.c)
 #target_link_libraries(glcpp glsl_optimizer)
+
