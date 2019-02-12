@@ -65,7 +65,7 @@ void save_shader(glslopt_shader* shader, shader_input& shaderInput) {
 	string name = path.substr(0, path.length() - 5);
 	string save_path = name;
 	save_path += ".opt" + ext;
-	auto file = ofstream(save_path);
+	ofstream file(save_path);
 	file << shaderInput.comment << "\n"<< opt_source;
 	file.close();
 	cout << "Saved optimized shader: " << save_path << endl;
