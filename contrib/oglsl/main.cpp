@@ -1,4 +1,5 @@
 #include "../glsl/glsl_optimizer.h"
+#include "dirent.h"
 #include <string>
 #include <vector>
 #include <fstream>
@@ -11,7 +12,11 @@
 using namespace std;
 
 void usage() {
-	cout << "Usage:"<< endl << "$ oglsl [ -h | -m ] paths_to_shader_files" << endl;
+#ifdef _WIN32
+	cout << "Usage:"<< endl << "$ oglsl.exe [ -h | -m ] paths_to_shader_files_or_folders_containing_shaders" << endl;
+#else
+	cout << "Usage:" << endl << "$ oglsl [ -h | -m ] paths_to_shader_files_or_folders_containing_shaders" << endl;
+#endif
 	cout << "Supported extensions are '.frag'  and '.vert' for full shaders, and '.glsl' for headers." << endl;
 	cout << "Use -h to force all the precision qualifiers in the fragments shaders to be 'highp'." << endl;
 	cout << "Use -m to force all the precision qualifiers in the fragments shaders to be 'mediump'." << endl;
@@ -90,10 +95,17 @@ void process_shader(glslopt_ctx* ctx, shader_input& shader_data) {
 
 void process_shaders(vector<shader_input>& shaders_data, glslopt_target target) {
 	auto ctx = glslopt_initialize(target);
-	for (auto& shader_data : shaders_data) {
-		process_shader(ctx, shader_data);
+	int num_shaders = shaders_data.size();
+	for (int i = 0; i < shaders_data.size(); ++i) {
+		process_shader(ctx, shaders_data[i]);
+		cout << i + 1 << " of " << num_shaders << endl;
 	}
 	glslopt_cleanup(ctx);
+}
+
+int is_dot_or_dot_dot(char const* name)
+{
+	return (strcmp(name, ".") == 0 || strcmp(name, "..") == 0);
 }
 
 int main(int argc, char **argv) {
@@ -117,7 +129,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	vector<shader_input> shdaers_gles2;
+	vector<shader_input> shaders_gles2;
 	vector<shader_input> shaders_gles3;
 
 	int i =  1;
@@ -133,14 +145,65 @@ int main(int argc, char **argv) {
 		i = 2;
 	}
 
+	vector<string> filepaths;
+	vector<string> inputs;
 	for (; i < argc; ++i) {
+		inputs.push_back(argv[i]);
+	}
+	DIR *dir;
+	dirent *ent;
+	while (inputs.size() > 0) {
+		string input = inputs.back();
+		inputs.pop_back();
+
+		if ((dir = opendir(input.c_str())) != NULL) {
+			cout << "Gathering shaders in directory: " << input << endl;
+			while ((ent = readdir(dir)) != NULL) {
+				if (is_dot_or_dot_dot(ent->d_name)) continue;
+				if (ent->d_type == DT_DIR) {
+					inputs.push_back(input + "/" + ent->d_name);
+					cout << "Found subdirectory: " << ent->d_name << endl;
+				}
+				else {
+					cout << "Found file: " << ent->d_name << endl;
+					filepaths.push_back(input + "/" + ent->d_name);
+				}
+			}
+			closedir(dir);
+		}
+		else {
+			cout << "Found file: " << input << endl;
+			filepaths.push_back(input);
+		}
+	}
+	
+	auto num_files = filepaths.size();
+	cout << "Number of files: " << num_files << endl;
+
+
+	for (int i = 0; i < num_files; ++i) {
+		auto& filepath = filepaths[i];
+
+		string extension = filepath.substr(filepath.length() - 5, filepath.length());
+		bool is_frag = extension.compare(".frag") == 0;
+		bool is_vert = extension.compare(".vert") == 0;
+		bool is_glsl = extension.compare(".glsl") == 0;
+
+		if (!is_frag && !is_vert && !is_glsl) {
+			cout << "Skipping file: " << filepath << " because of unsupported extension. File number" << i << " of " << num_files << endl;
+			continue;
+		}
+		else {
+			cout << "Loading file: " << filepath << endl;
+			cout << i + 1 << " of " << num_files << endl;
+		}
 
 		string shader_source;
 		try {
-			shader_source = read_file(argv[i]);
+			shader_source = read_file(filepath.c_str());
 		}
 		catch (...) {
-			cout << "WARNING: Failed to load file: " << argv[i] << endl;
+			cout << "WARNING: Failed to load file: " << filepath << endl;
 			continue;
 		}
 
@@ -154,13 +217,8 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		string filepath = string(argv[i]);
-		string extension = filepath.substr(filepath.length() - 5, filepath.length());
-		bool is_fragment = extension.compare(".frag") == 0;
-		bool is_vertex = extension.compare(".vert") == 0;
-		bool is_glsl = extension.compare(".glsl") == 0;
 		bool is_complete = !is_glsl;
-		if (is_glsl) is_fragment = true;
+		bool is_fragment = is_frag || is_glsl;
 
 		if (is_fragment) {
 			if (force_high_precision) {
@@ -173,18 +231,16 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		if (is_fragment || is_vertex) {
-			glslopt_shader_type type = is_fragment ? kGlslOptShaderFragment : kGlslOptShaderVertex;
-			auto shader = shader_input(filepath, shader_source, comment, type, is_complete);
-			bool is_gles3 = shader_source.find("#version 300 es") != string::npos;
-			if (is_gles3) shaders_gles3.push_back(shader);
-			else shdaers_gles2.push_back(shader);
-		}else{
-			cout << "WARNING: file " << filepath << " has unsupported extension. Supporting '.frag', '.vert' and '.glsl' files." << endl;
-		}
+		glslopt_shader_type type = is_fragment ? kGlslOptShaderFragment : kGlslOptShaderVertex;
+		auto shader = shader_input(filepath, shader_source, comment, type, is_complete);
+		bool is_gles3 = shader_source.find("#version 300 es") != string::npos;
+		if (is_gles3) shaders_gles3.push_back(shader);
+		else shaders_gles2.push_back(shader);
 	}
+	cout << "Number of GLES 2 shaders: " << shaders_gles2.size() << endl;
+	cout << "Number of GLES 3 shaders: " << shaders_gles3.size() << endl;
 
-	process_shaders(shdaers_gles2, kGlslTargetOpenGLES20);
+	process_shaders(shaders_gles2, kGlslTargetOpenGLES20);
 	process_shaders(shaders_gles3, kGlslTargetOpenGLES30);
 
 	cout << "oglsl is done." << endl;

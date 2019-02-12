@@ -4,9 +4,13 @@ oglsl
 
 oglsl is a tool to optimize lots of shaders with a single command.
  
-It runs in the command line, and it takes the paths to the shaders to be optimized as arguments.
+It runs in the command line, and it takes as arguments one or more paths, pointing either to shader files or to directories containing them.
 
-oglsl understands if a shader uses OpenGL ES 3 by looking for the string `#version 300 es`, and it will treat  `.frag` files as fragment shaders, `.vert` files as vertex shaders, and `.glsl` files as headers.
+The optimized shaders will be saved in the same directory as the originals, with the suffix `.opt` added before the extension.
+
+On Windows, you can also drag and drop files and/or folders on `oglsl.exe`.
+
+oglsl understands if a shader uses OpenGL ES 3 by looking for the string `#version 300 es`, and it will treat  `.frag` files as fragment shaders, `.vert` files as vertex shaders, and `.glsl` files as headers. Files with other extensions will be skipped.
 
 oglsl can force the precision qualifiers in the fragment shaders to be `highp` (or `mediump`) when ran with the option `-h` (or `-m`).
 
